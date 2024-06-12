@@ -34,17 +34,6 @@ def merge_files_into_one(file_name_1: str, file_name_2: str, final_name: str):
 
     merged_df = df1.union(df2)
 
-    # print(f'PAANOS number of merged rows: {merged_df.count()}')
-    # merged_df.show(5)
-    #
-    # print(f'PAANOS before writing the file')
-    # # .mode("overwrite")
-    # try:
-    #     merged_df.write.mode("overwrite").csv(f"{hdfs_path}/{final_name}", header=True)
-    # except Exception as e:
-    #     print(f'PAANOS HDFS error: {e}')
-    # print(f'PAANOS after writing the file to: {hdfs_path}/{final_name}')
-
     print(f'PAANOS attempting to write it locally')
     merged_df.write.csv(f"./{final_name}", header=True)
     print(f'PAANOS after writing file locally to ./{final_name}')

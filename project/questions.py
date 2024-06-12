@@ -9,7 +9,7 @@ from constants import income_dataset_schema, rev_geocoding_dataset_schema, main_
     INC_ZIP_CODE_COL_NAME, REV_ZIP_CODE_COL_NAME, EST_MEDIAN_INCOME_COL_NAME, LATITUDE_COL_NAME, \
     Q4_PRECINCT_COL_NAME, AREA_COL_NAME, Q4_LATITUDE_COL_NAME, Q4_LONGITUDE_COL_NAME, Q4_DIVISION_COL_NAME, \
     TIMESTAMP_FORMAT, TIME_OCCURRED_COL_NAME, PREMISE_CODE_COL_NAME
-from collections import namedtuple
+
 
 LON_LAT_CONCAT_COL_NAME = 'lon_lat_concat'
 
@@ -40,22 +40,17 @@ def question_a_sql():
     filename = 'Crime_Data_all.csv'
 
     spark = SparkSession.builder \
-        .appName("YourAppName5235") \
+        .appName("Query-1-SQL-API") \
         .config("spark.sql.repl.eagerEval.enabled", True) \
         .getOrCreate()
 
     date_reported_timestamp_col_name = 'date_reported_timestamp'
 
     # df1 = spark.read.parquet(get_parquet_filepath())
-    localpath = r'C:\Users\panos\Documents\PhD\courses\semester-4/Crime_Data_all.csv'
+    # localpath = r'C:\Users\panos\Documents\PhD\courses\semester-4/Crime_Data_all.csv'
     # df1 = spark.read.csv(f'{hdfs_path}/{filename}', header=True, inferSchema=True)
 
-    from timeit import default_timer as timer
-    start = timer()
-    df1 = spark.read.csv(localpath, header=True, inferSchema=True)
-    end = timer()
-    from builtins import round as roundpy
-    print(f'Took: {roundpy(end - start, 3)} seconds to read the csv.')
+    df1 = spark.read.csv(f'{hdfs_path}/{filename}', header=True, inferSchema=True)
 
     df1 = df1.withColumn(date_reported_timestamp_col_name, to_timestamp(df1[DATE_REPORTED_COL_NAME], TIMESTAMP_FORMAT))
 
@@ -68,18 +63,13 @@ def question_a_sql():
     # Show the result
     result_df.show(55)
 
-    # df2.createOrReplaceTempView(table_name_2)
-    # result_df = spark.sql(__get_sql_query__(table_name_2))
-    #
-    # result_df.show(35)
-
     spark.stop()
 
 
 def question_a():
     print('Question A - Running in DataFrame mode...')
     spark = SparkSession.builder \
-        .appName("Question-A-DataFrame-Session") \
+        .appName("Query-1-DataFrame") \
         .config("spark.sql.repl.eagerEval.enabled", True) \
         .getOrCreate()
 
@@ -88,14 +78,10 @@ def question_a():
     # df = spark.read.parquet(get_parquet_filepath())
     df = spark.read.csv(f'{hdfs_path}/{filename}', header=True, inferSchema=True)
 
-    # df.select(DATE_REPORTED_COL_NAME).show()
-
     df2 = df.withColumn("timestamp_panos", to_timestamp(df[DATE_REPORTED_COL_NAME], "MM/dd/yyyy hh:mm:ss a"))
 
     df3 = df2.withColumn("CRIME_YEAR", year(df2["timestamp_panos"]))
     df3 = df3.withColumn("CRIME_MONTH", month(df2["timestamp_panos"]))
-
-    # df3.select("CRIME_MONTH", "CRIME_YEAR").show()
 
     grouped_df = df3.groupBy("CRIME_YEAR", "CRIME_MONTH").count()
 
@@ -127,7 +113,7 @@ def question_b_rdd():
     print('Question B - Running in RDD mode...')
 
     spark = SparkSession.builder \
-        .appName("Question-A-DataFrame-Session") \
+        .appName("Query-2-RDD") \
         .config("spark.sql.repl.eagerEval.enabled", True) \
         .getOrCreate()
 
@@ -168,7 +154,7 @@ def question_b_rdd():
 def question_b():
     print('Question B - Running in DataFrame mode...')
     spark = SparkSession.builder \
-        .appName("Question-B-DataFrame") \
+        .appName("Query-2-DataFrame") \
         .config("spark.sql.repl.eagerEval.enabled", True) \
         .getOrCreate()
 
@@ -216,11 +202,10 @@ def question_c():
     <Victim Descent, Zip Code> exists. TODO<ADD DESCRIPTION FOR THE TOP AND BOTTOM 3>
     Finally, a groupBy-count operation is done to present the result.
 
-    :param dataset_path:
     :return:
     """
     spark = SparkSession.builder \
-        .appName("YourAppName") \
+        .appName("Query-3") \
         .config("spark.sql.repl.eagerEval.enabled", True) \
         .getOrCreate()
 
@@ -271,72 +256,45 @@ def question_c():
                                                   income_2015_df[INC_ZIP_CODE_COL_NAME] ==
                                                   rev_gecoding_df[REV_ZIP_CODE_COL_NAME],
                                                   how='inner')
-    # print(f'RevGeocoding size: {rev_gecoding_df.count()}, '
-    #       f'Income size: {income_2015_df.count()}, '
-    #       f'RevGeoIncome size: {income_rev_geocoding_df.count()}')
 
     final_joined_df = df2015.join(income_rev_geocoding_df, on=LON_LAT_CONCAT_COL_NAME, how='inner')
 
-    # final_joined_df.show()
-
     print(f'Triple joined DF size: {final_joined_df.count()}')
 
-    # print(f'Final df size: {final_joined_df.count()}')
-
-    # final_joined_df.show()
-
     grouped_by_df = final_joined_df.groupBy(VICTIM_DESCENT_COL_NAME, f'{EST_MEDIAN_INCOME_COL_NAME}_NUM').count()
-    # panos_df.show()
+
     print('Calculating the total number of victims per descent for the highest 3 avg income locations...')
-    panos_window_spec = Window.partitionBy(VICTIM_DESCENT_COL_NAME) \
+    top3_window_spec = Window.partitionBy(VICTIM_DESCENT_COL_NAME) \
         .orderBy(col(f'{EST_MEDIAN_INCOME_COL_NAME}_NUM').desc())
-    panos_df = grouped_by_df.withColumn("row_num", row_number().over(panos_window_spec))
-    panos_df = panos_df.filter(col("row_num") <= 3).drop("row_num")
-    # panos_df.show()
-    panos_df = panos_df.groupBy(VICTIM_DESCENT_COL_NAME) \
+    top3_df = grouped_by_df.withColumn("row_num", row_number().over(top3_window_spec))
+    top3_df = top3_df.filter(col("row_num") <= 3).drop("row_num")
+
+    top3_df = top3_df.groupBy(VICTIM_DESCENT_COL_NAME) \
         .agg(sum("count").alias('Total Victims')) \
         .orderBy(col('Total Victims').desc())
-    # panos_df.show()
-    panos_df = get_full_premise_descent_category(panos_df)
-    panos_df.show(100)
+
+    top3_df = get_full_premise_descent_category(top3_df)
+    top3_df.show(100)
 
     print('Calculating the total number of victims per descent for the lowest 3 avg income locations...')
-    panos_window_spec_2 = Window.partitionBy(VICTIM_DESCENT_COL_NAME) \
+    bottom3_window_spec = Window.partitionBy(VICTIM_DESCENT_COL_NAME) \
         .orderBy(col(f'{EST_MEDIAN_INCOME_COL_NAME}_NUM').asc())
-    panos_df_2 = grouped_by_df.withColumn("row_num", row_number().over(panos_window_spec_2))
-    panos_df_2 = panos_df_2.filter(col("row_num") <= 3).drop("row_num")
-    # panos_df_2.show()
-    panos_df_2 = panos_df_2.groupBy(VICTIM_DESCENT_COL_NAME) \
+    bottom3_df = grouped_by_df.withColumn("row_num", row_number().over(bottom3_window_spec))
+    bottom3_df = bottom3_df.filter(col("row_num") <= 3).drop("row_num")
+
+    bottom3_df = bottom3_df.groupBy(VICTIM_DESCENT_COL_NAME) \
         .agg(sum("count").alias('Total Victims')) \
         .orderBy(col('Total Victims').desc())
-    # panos_df_2.show()
-    panos_df_2 = get_full_premise_descent_category(panos_df_2)
-    panos_df_2.show(100)
 
-    # window_spec = Window.partitionBy(VICTIM_DESCENT_COL_NAME).orderBy(col(EST_MEDIAN_INCOME_COL_NAME).desc())
-    # df_with_row_num = final_joined_df.withColumn("row_num", row_number().over(window_spec))
-    # top_3_df = df_with_row_num.filter(col("row_num") <= 3).drop("row_num")
-    #
-    # top_3_df.show()
-    #
-    # result_df = top_3_df.groupBy(VICTIM_DESCENT_COL_NAME).count()
-    # result_df = get_full_premise_descent_category(result_df)
-    # result_df.orderBy(col('Total Victims').desc()).show()
-    #
-    # window_spec = Window.partitionBy(VICTIM_DESCENT_COL_NAME).orderBy(col(EST_MEDIAN_INCOME_COL_NAME).asc())
-    # df_with_row_num = final_joined_df.withColumn("row_num", row_number().over(window_spec))
-    # bottom_3_df = df_with_row_num.filter(col("row_num") <= 3).drop("row_num")
-    # result_df = bottom_3_df.groupBy(VICTIM_DESCENT_COL_NAME).count()
-    # result_df = get_full_premise_descent_category(result_df)
-    # result_df.orderBy(col('Total Victims').desc()).show()
+    bottom3_df = get_full_premise_descent_category(bottom3_df)
+    bottom3_df.show(100)
 
     spark.stop()
 
 
 def question_d():
     """
-
-    :param dataset_path:
+    TODO: ADD
     :return:
     """
 
@@ -368,21 +326,10 @@ def question_d():
     # os.environ[
     #     'PYSPARK_DRIVER_PYTHON'] = r'C:\Users\panos\anaconda3\envs\dsml-large-scale-data-management-env\python.exe'
 
-    # .master("local[*]") \
-    # .config("spark.executor.memory", "2g") \
-    # .config("spark.driver.memory", "2g") \
-    # .config("spark.executor.heartbeatInterval", "60s") \
-    # .config("spark.network.timeout", "120s") \
-    # .config("spark.rpc.message.maxSize", "512") \
-    # .config("spark.driver.maxResultSize", "2g") \
-
     spark = SparkSession.builder \
-        .appName("YourAppName") \
+        .appName("Query-4-DataFrame") \
         .config("spark.sql.repl.eagerEval.enabled", True) \
         .getOrCreate()
-
-    # dataset_path = r'C:\Users\panos\Documents\PhD\courses\semester-4\Διαχειριση-Δεδομενων-Μεγαλης-Κλιμακας\Εργασια\Crime_Data_from_2010_to_2019.csv'
-    # q4_dataset_path = r'C:\Users\panos\Documents\PhD\courses\semester-4\Διαχειριση-Δεδομενων-Μεγαλης-Κλιμακας\Εργασια\query-4-data.csv'
 
     crime_dataset_filename = 'Crime_Data_all.csv'
     q4_dataset_filename = 'query-4-data.csv'
@@ -404,15 +351,6 @@ def question_d():
                                          (weapon_filtered_df[LATITUDE_COL_NAME] != 0))
 
     print(f'Dataset which has only weapon crimes after removing NULL Island entries: {clear_df.count()}')
-
-    # clear_df.show()
-
-    # remove_df = df.filter((df[LONGITUDE_COL_NAME] == 0) &
-    #                       (df[LATITUDE_COL_NAME] == 0) &
-    #                       (df[WEAPON_USED_CODE_COL_NAME] >= 100) &
-    #                       (df[WEAPON_USED_CODE_COL_NAME] < 200))
-    #
-    # print(f'NULL Island with weapon crime entries: {remove_df.count()}')
 
     q4_df = spark.read.csv(path=q4_dataset_path, header=True, inferSchema=True)
 
@@ -441,7 +379,7 @@ def question_d_rdd():
     """
     print('Running in RDD mode...')
     spark = SparkSession.builder \
-        .appName("YourAppName") \
+        .appName("Query-4-RDD") \
         .config("spark.sql.repl.eagerEval.enabled", True) \
         .getOrCreate()
 
@@ -524,10 +462,6 @@ def question_d_rdd():
     schema = ['division', 'average_distance', 'incidents_total']
     df = spark.createDataFrame(sorted_rdd, schema=schema)
     df.show(100)
-
-    # results = result_rdd.collect()
-    # for group, (average, count) in results:
-    #     print(f"Group: {group}, Average of second column: {average}, Count: {count}")
 
     spark.stop()
 

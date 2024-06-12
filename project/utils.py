@@ -6,7 +6,11 @@ import socket
 
 
 def location_has_more_than_one_zip_code(df: DataFrame, groupby_col_name: str):
-    """"
+    """
+    TODO: ADD
+    :param df:
+    :param groupby_col_name:
+    :return:
     """
     original_rows = df.count()
     df2 = df.groupBy(groupby_col_name).agg(max(REV_ZIP_CODE_COL_NAME).alias('Zip_code'))
@@ -56,7 +60,6 @@ def get_hdfs_subpath() -> str:
 def get_hdfs_path() -> str:
     port = 9000
     private_ip = get_private_ip()
-    # return r"C:\Users\panos\Documents\PhD\courses\semester-4"
     return f'hdfs://{private_ip}:{port}/{get_hdfs_subpath()}'
 
 
